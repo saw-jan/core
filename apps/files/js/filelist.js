@@ -665,17 +665,28 @@
 						var mime = this.fileActions.getCurrentMimeType();
 						var type = this.fileActions.getCurrentType();
 						var permissions = this.fileActions.getCurrentPermissions();
+						var actionsWithoutDefaults = this.fileActions.getActionsWithoutDefaults(mime,type, permissions);
+						var context = {
+							$file: $tr,
+							fileList: this,
+							fileActions: this.fileActions,
+							dir: $tr.attr('data-path') || this.getCurrentDirectory()
+						};
+
+						// don't show app drawer for directories as we want to open them per default
+						if (Object.keys(actionsWithoutDefaults).length > 1 && type !== 'dir') {
+							var appDrawer = new OCA.Files.FileActionsAppDrawer();
+							appDrawer.show(context, $tr.find('td.filename'));
+							event.preventDefault();
+							return;
+						}
+
 						var action = this.fileActions.getDefault(mime,type, permissions);
 						if (action) {
 							event.preventDefault();
 							// also set on global object for legacy apps
 							window.FileActions.currentFile = this.fileActions.currentFile;
-							action(filename, {
-								$file: $tr,
-								fileList: this,
-								fileActions: this.fileActions,
-								dir: $tr.attr('data-path') || this.getCurrentDirectory()
-							});
+							action(filename, context);
 						}
 						// deselect row
 						$(event.target).closest('a').blur();
