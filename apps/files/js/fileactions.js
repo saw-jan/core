@@ -223,7 +223,7 @@
 
 		/**
 		 * Returns an array of file actions matching the given conditions while
-		 * omitting the default actions like "Rename", "Download" etc.
+		 * omitting the actions which apply to all mime types ("Rename", "Download" etc.)
 		 *
 		 * @param {string} mime mime type
 		 * @param {string} type "dir" or "file"
@@ -231,7 +231,7 @@
 		 *
 		 * @return {Object.<OCA.Files.FileAction>} array of action specs
 		 */
-		getActionsWithoutDefaults: function (mime, type, permissions) {
+		getActionsWithoutAll: function (mime, type, permissions) {
 			return this._getActions(mime, type, permissions, true);
 		},
 
@@ -289,14 +289,14 @@
 		 * @param {string} mime mime type
 		 * @param {string} type "dir" or "file"
 		 * @param {int} permissions permissions
-		 * @param {boolean} excludeDefaults excludeDefaults
+		 * @param {boolean} excludeAll excludeAll
 		 *
 		 * @return {Object.<OCA.Files.FileAction>} array of action specs
 		 */
-		_getActions: function (mime, type, permissions, excludeDefaults) {
+		_getActions: function (mime, type, permissions, excludeAll) {
 			var actions = {};
 
-			if (this.actions.all && excludeDefaults !== true) {
+			if (this.actions.all && excludeAll !== true) {
 				actions = $.extend(actions, this.actions.all);
 			}
 			if (type) {//type is 'dir' or 'file'

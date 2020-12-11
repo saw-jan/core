@@ -665,7 +665,7 @@
 						var mime = this.fileActions.getCurrentMimeType();
 						var type = this.fileActions.getCurrentType();
 						var permissions = this.fileActions.getCurrentPermissions();
-						var actionsWithoutDefaults = this.fileActions.getActionsWithoutDefaults(mime,type, permissions);
+						var actionsWithoutAll = this.fileActions.getActionsWithoutAll(mime,type, permissions);
 						var context = {
 							$file: $tr,
 							fileList: this,
@@ -674,7 +674,7 @@
 						};
 
 						// don't show app drawer for directories as we want to open them per default
-						if (Object.keys(actionsWithoutDefaults).length > 1 && type !== 'dir') {
+						if (Object.keys(actionsWithoutAll).length > 1 && type !== 'dir') {
 							var appDrawer = new OCA.Files.FileActionsAppDrawer();
 							appDrawer.show(context, $tr.find('td.filename'));
 							event.preventDefault();

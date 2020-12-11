@@ -90,7 +90,7 @@
 
 		render: function() {
 			var fileActions = this._context.fileActions;
-			var actions = fileActions.getActionsWithoutDefaults(
+			var actions = fileActions.getActionsWithoutAll(
 				fileActions.getCurrentMimeType(),
 				fileActions.getCurrentType(),
 				fileActions.getCurrentPermissions()
