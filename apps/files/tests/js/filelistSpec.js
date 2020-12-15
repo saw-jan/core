@@ -2378,9 +2378,9 @@ describe('OCA.Files.FileList tests', function() {
 			var $tr = fileList.findFileEl('One.txt');
 			$tr.find('td.filename .nametext').click();
 			expect(actionStub.calledOnce).toEqual(false);
-			expect($tr.find('td.filename .fileActionsAppDrawer').length).toEqual(1);
-			expect($tr.find('td.filename .fileActionsAppDrawer a').length).toEqual(2);
-			var firstAction = $tr.find('td.filename .fileActionsAppDrawer a')[0];
+			expect($tr.find('td.filename .fileActionsApplicationSelectMenu').length).toEqual(1);
+			expect($tr.find('td.filename .fileActionsApplicationSelectMenu a').length).toEqual(2);
+			var firstAction = $tr.find('td.filename .fileActionsApplicationSelectMenu a')[0];
 			firstAction.click();
 			expect(actionStub.calledOnce).toEqual(true);
 		});
