@@ -47,12 +47,13 @@ class TUSContext implements Context {
 	 *
 	 * @param string    $user
 	 * @param TableNode $headers
+	 * @param string $content
 	 *
 	 * @return void
 	 *
 	 * @throws Exception
 	 */
-	public function createNewTUSresourceWithHeaders(string $user, TableNode $headers) {
+	public function createNewTUSresourceWithHeaders(string $user, TableNode $headers, string $content = '') {
 		$this->featureContext->verifyTableNodeColumnsCount($headers, 2);
 		$user = $this->featureContext->getActualUsername($user);
 		$password = $this->featureContext->getUserPassword($user);
@@ -65,7 +66,8 @@ class TUSContext implements Context {
 				),
 				$user,
 				$password,
-				$headers->getRowsHash()
+				$headers->getRowsHash(),
+				$content
 			)
 		);
 		$locationHeader = $this->featureContext->getResponse()->getHeader('Location');
@@ -130,7 +132,6 @@ class TUSContext implements Context {
 	 *                               see https://tus.io/protocols/resumable-upload.html#upload-metadata
 	 *                               Don't Base64 encode the value.
 	 * @param int    $noOfChunks
-     * @param array  $creationUploadHeaders
 	 *
 	 * @return void
 	 * @throws ConnectionException
@@ -142,26 +143,17 @@ class TUSContext implements Context {
 		string $source,
 		string $destination,
 		array $uploadMetadata = [],
-		int $noOfChunks = 1,
-        array $creationUploadHeaders = []
+		int $noOfChunks = 1
 	) {
-        $TusHeader = '';
-        foreach ($creationUploadHeaders as $key => $value) {
-            if ($TusHeader != '') {
-                $TusHeader = $TusHeader . ',' ;
-            }
-            $TusHeader = $TusHeader . $key . '=>' . $value;
-        }
 		$user = $this->featureContext->getActualUsername($user);
 		$password = $this->featureContext->getUserPassword($user);
 		$client = new Client(
-            $this->featureContext->getBaseUrl(),
-            ['verify' => false,
-                'headers' => [
-                    'Authorization' => 'Basic ' . \base64_encode($user . ':' . $password),
-                    $TusHeader
-                ]
-            ]
+			$this->featureContext->getBaseUrl(),
+			['verify' => false,
+				'headers' => [
+					'Authorization' => 'Basic ' . \base64_encode($user . ':' . $password)
+				]
+			]
 		);
 		$client->setApiPath(
 			WebDavHelper::getDavPath($user, $this->featureContext->getDavPathVersion())
@@ -284,26 +276,20 @@ class TUSContext implements Context {
 		$this->featureContext = $environment->getContext('FeatureContext');
 	}
 
-    /**
-     * @When user :user creates a new TUS resource with content :content to :destination on the WebDAV API with these headers:
-     *
-     * @param string $user
-     * @param string $content
-     * @param string $destination
-     * @param TableNode $headers
-     *
-     * @return void
-     *
-     * @throws Exception
-     */
-    public function userCreatesWithUpload(
-        string $user, string $content, string $destination, TableNode $headers
-    )
-    {
-        $tmpfname = $this->writeDataToTempFile($content);
-        $this->userUploadsUsingTusAFileTo(
-            $user, \basename($tmpfname), $destination, [], 1, $headers->getRowsHash()
-        );
-        \unlink($tmpfname);
-    }
+	/**
+	 * @When user :user creates a new TUS resource with content :content on the WebDAV API with these headers:
+	 *
+	 * @param string $user
+	 * @param string $content
+	 * @param TableNode $headers
+	 *
+	 * @return void
+	 *
+	 * @throws Exception
+	 */
+	public function userCreatesWithUpload(
+		string $user, string $content, TableNode $headers
+	) {
+		$this->createNewTUSresourceWithHeaders($user, $headers, $content);
+	}
 }
