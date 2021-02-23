@@ -1111,7 +1111,7 @@ def phpTests(ctx, testType):
 		'extraSetup': [],
 		'extraServices': [],
 		'extraEnvironment': {},
-		'extraCommandsBeforeTestRun': [],
+		'extraCommandsBeforeTestRun': ['cd ../', 'cd testrunner'],
 		'extraApps': {},
 	}
 
@@ -1490,11 +1490,14 @@ def acceptance(ctx):
 										composerInstall(phpVersion) +
 										vendorbinBehat() +
 										yarnInstall(phpVersion) +
-										installServer(phpVersion, db, params['logLevel'], params['useHttps'], params['federatedServerNeeded'], params['proxyNeeded']) +
-										(
-											installAndConfigureFederated(ctx, federatedServerVersion, params['federatedPhpVersion'], params['logLevel'], protocol, federatedDb, federationDbSuffix) +
-											owncloudLog('federated', 'federated') if params['federatedServerNeeded'] else []
-										) +
+										# installServer(phpVersion, db, params['logLevel'], params['useHttps'], params['federatedServerNeeded'], params['proxyNeeded']) +
+										installCore('daily-master-qa', db, params['useBundledApp']) +
+										installTestrunner(phpVersion, params['useBundledApp']) +
+										(installFederatedFromTar('daily-master-qa', phpVersion, params['logLevel'], db, federationDbSuffix) + owncloudLog('federated', 'federated') if params['federatedServerNeeded'] else []) +
+										# (
+										# 	installAndConfigureFederated(ctx, federatedServerVersion, params['federatedPhpVersion'], params['logLevel'], protocol, federatedDb, federationDbSuffix) +
+										# 	owncloudLog('federated', 'federated') if params['federatedServerNeeded'] else []
+										# ) +
 										installExtraApps(phpVersion, extraAppsDict) +
 										setupCeph(phpVersion, params['cephS3']) +
 										setupScality(phpVersion, params['scalityS3']) +
@@ -1511,7 +1514,8 @@ def acceptance(ctx):
 											'commands': params['extraCommandsBeforeTestRun'] + [
 												'touch /drone/saved-settings.sh',
 												'. /drone/saved-settings.sh',
-												'%smake %s' % (suExecCommand, makeParameter)
+												# '%smake %s' % (suExecCommand, makeParameter)
+												'pwd','ls'
 											]
 										}),
 									],
@@ -2171,7 +2175,8 @@ def createShare(phpVersion):
 def installExtraApps(phpVersion, extraApps):
 	commandArray = []
 	for app, command in extraApps.items():
-		commandArray.append('git clone https://github.com/owncloud/%s.git /drone/src/apps/%s' % (app, app))
+		commandArray.append('git clone https://github.com/owncloud/%s.git /drone/testrunner/apps/%s' % (app, app))
+		commandArray.append('cp -r /drone/testrunner/apps/%s /drone/src/apps/' % app)
 		if (command != ''):
 			commandArray.append('cd /drone/src/apps/%s' % app)
 			commandArray.append(command)
@@ -2328,7 +2333,7 @@ def setupCeph(phpVersion, cephS3):
 			'wait-for-it -t 600 ceph:80',
 			'cd /drone/src/apps/files_primary_s3',
 			'cp tests/drone/ceph.config.php /drone/src/config',
-			'cd /var/www/owncloud/server',
+			'cd /drone/src',
 			'./apps/files_primary_s3/tests/drone/create-bucket.sh',
 		]
 	}]
@@ -2397,3 +2402,98 @@ def dependsOn(earlierStages, nextStages):
 	for earlierStage in earlierStages:
 		for nextStage in nextStages:
 			nextStage['depends_on'].append(earlierStage['name'])
+
+def installCore(version, db, useBundledApp):
+	host = getDbName(db)
+	dbType = host
+
+	username = getDbUsername(db)
+	password = getDbPassword(db)
+	database = getDbDatabase(db)
+
+	if host == 'mariadb':
+		dbType = 'mysql'
+
+	if host == 'postgres':
+		dbType = 'pgsql'
+
+	if host == 'oracle':
+		dbType = 'oci'
+
+	stepDefinition = {
+		'name': 'install-core',
+		'image': 'owncloudci/core',
+		'pull': 'always',
+		'settings': {
+			'version': version,
+			'core_path': '/drone/src',
+			'db_type': dbType,
+			'db_name': database,
+			'db_host': host,
+			'db_username': username,
+			'db_password': password
+		}
+	}
+
+	if not useBundledApp:
+		stepDefinition['settings']['exclude'] = 'apps/%s' % 'testing'
+
+	return [stepDefinition]
+
+def installFederatedFromTar(federatedServerVersion, phpVersion, logLevel, db, dbSuffix = '-federated'):
+	host = getDbName(db)
+	dbType = host
+
+	username = getDbUsername(db)
+	password = getDbPassword(db)
+	database = getDbDatabase(db) + dbSuffix
+
+	if host == 'mariadb':
+		dbType = 'mysql'
+	elif host == 'postgres':
+		dbType = 'pgsql'
+	elif host == 'oracle':
+		dbType = 'oci'
+	return [
+		{
+			'name': 'install-federated',
+			'image': 'owncloudci/core',
+			'pull': 'always',
+			'settings': {
+				'version': federatedServerVersion,
+				'core_path': '/drone/federated',
+				'db_type': 'mysql',
+				'db_name': database,
+				'db_host': host + dbSuffix,
+				'db_username': username,
+				'db_password': password
+			},
+		},
+		{
+			'name': 'configure-federation',
+			'image': 'owncloudci/php:%s' % phpVersion,
+			'pull': 'always',
+			'commands': [
+				'echo "export TEST_SERVER_FED_URL=http://federated" > /drone/saved-settings.sh',
+				'cd /drone/federated',
+				'php occ a:l',
+				'php occ a:e testing',
+				'php occ a:l',
+				'php occ config:system:set trusted_domains 1 --value=federated',
+				'php occ log:manage --level %s' % logLevel,
+				'php occ config:list'
+			]
+		}
+	]
+
+def installTestrunner(phpVersion, useBundledApp):
+	return [{
+		'name': 'install-testrunner',
+		'image': 'owncloudci/php:%s' % phpVersion,
+		'pull': 'always',
+		'commands': [
+			'mkdir /tmp/testrunner',
+			'git clone -b master --depth=1 https://github.com/owncloud/core.git /tmp/testrunner',
+			'rsync -aIX /tmp/testrunner /drone/testrunner',
+		]
+	}]
